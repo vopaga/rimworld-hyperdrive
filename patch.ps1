@@ -28,11 +28,11 @@
 
 .EXAMPLE
     # After a Steam update — force fresh re-detection
-    .\patch.ps1 -GameDir "..." -Fresh
+    .\patch.ps1 -GameDir "D:\Games\RimWorld" -Fresh
 
 .EXAMPLE
     # Restore original unpatched DLL
-    .\patch.ps1 -GameDir "..." -Restore
+    .\patch.ps1 -GameDir "D:\Games\RimWorld" -Restore
 #>
 
 param(
@@ -45,51 +45,104 @@ param(
 $ErrorActionPreference = "Stop"
 $ScriptDir = $PSScriptRoot
 
-# ── Validate game dir ─────────────────────────────────────────────────────────
-$ManagedDir = Join-Path $GameDir "RimWorldWin64_Data\Managed"
-if (-not (Test-Path (Join-Path $ManagedDir "Assembly-CSharp.dll"))) {
-    Write-Error "Assembly-CSharp.dll not found in: $ManagedDir`nCheck -GameDir path."
+function Write-Step  { param($msg) Write-Host "`n[Hyperdrive] $msg" -ForegroundColor Cyan }
+function Write-OK    { param($msg) Write-Host "[Hyperdrive] $msg" -ForegroundColor Green }
+function Write-Fail  { param($msg) Write-Host "`n[Hyperdrive] ERROR: $msg" -ForegroundColor Red }
+function Write-Warn  { param($msg) Write-Host "[Hyperdrive] WARNING: $msg" -ForegroundColor Yellow }
+
+# ── OS check ──────────────────────────────────────────────────────────────────
+if (-not $IsWindows) {
+    Write-Fail "RimWorld Hyperdrive only supports Windows."
+    exit 1
 }
 
-# Expose game dir to MSBuild so Helpers.csproj can resolve HintPaths
-$env:RimWorldDir = $GameDir
+# ── .NET SDK check ────────────────────────────────────────────────────────────
+Write-Step "Checking prerequisites..."
+$dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
+if (-not $dotnet) {
+    Write-Fail ".NET SDK not found.`n  Install it from: https://dotnet.microsoft.com/download`n  Requires .NET 8 or newer."
+    exit 1
+}
+$sdkVersion = (dotnet --version 2>&1)
+$major = [int]($sdkVersion -split '\.')[0]
+if ($major -lt 8) {
+    Write-Fail ".NET SDK $sdkVersion is too old. Requires .NET 8+.`n  Install from: https://dotnet.microsoft.com/download"
+    exit 1
+}
+Write-OK "Found .NET SDK $sdkVersion"
 
+# ── Source files check ────────────────────────────────────────────────────────
 $HelpersProj = Join-Path $ScriptDir "src\Helpers\Helpers.csproj"
 $PatcherProj = Join-Path $ScriptDir "src\PatcherTool\PatcherTool.csproj"
-$HelpersBin  = Join-Path $ScriptDir "src\Helpers\bin\Release\net472"
+if (-not (Test-Path $HelpersProj) -or -not (Test-Path $PatcherProj)) {
+    Write-Fail "Source files not found. Make sure you extracted the full ZIP and are running patch.ps1 from its folder."
+    exit 1
+}
+
+# ── Game dir check ────────────────────────────────────────────────────────────
+$ManagedDir  = Join-Path $GameDir "RimWorldWin64_Data\Managed"
+$TargetDll   = Join-Path $ManagedDir "Assembly-CSharp.dll"
+$BackupDll   = Join-Path $ManagedDir "Assembly-CSharp.dll.original"
+
+if (-not (Test-Path $GameDir)) {
+    Write-Fail "Game directory not found: $GameDir`n  Use -GameDir to specify the correct path, e.g.:`n    .\patch.ps1 -GameDir `"D:\Games\RimWorld`""
+    exit 1
+}
+if (-not (Test-Path $TargetDll)) {
+    Write-Fail "Assembly-CSharp.dll not found in: $ManagedDir`n  This doesn't look like a RimWorld installation folder.`n  Use -GameDir to specify the correct path."
+    exit 1
+}
+Write-OK "Found RimWorld at: $GameDir"
+
+# ── Expose game dir to MSBuild (HintPaths in Helpers.csproj) ─────────────────
+$env:RimWorldDir = $GameDir
+$HelpersBin = Join-Path $ScriptDir "src\Helpers\bin\Release\net472"
 
 # ── Restore mode ──────────────────────────────────────────────────────────────
 if ($Restore) {
-    Write-Host "`n[Hyperdrive] Restoring original DLL..." -ForegroundColor Cyan
+    if (-not (Test-Path $BackupDll)) {
+        Write-Warn "No backup found at: $BackupDll`n  The game may already be unpatched, or was never patched with Hyperdrive."
+        exit 0
+    }
+    Write-Step "Restoring original DLL..."
     dotnet run --project $PatcherProj -c Release -- $ManagedDir $HelpersBin --restore
-    if ($LASTEXITCODE -ne 0) { exit 1 }
+    if ($LASTEXITCODE -ne 0) { Write-Fail "Restore failed."; exit 1 }
 
     $HelperDeployed = Join-Path $ManagedDir "RimWorldStartupHelpers.dll"
     if (Test-Path $HelperDeployed) {
         Remove-Item $HelperDeployed
-        Write-Host "[Hyperdrive] Removed RimWorldStartupHelpers.dll"
+        Write-OK "Removed RimWorldStartupHelpers.dll"
     }
-    Write-Host "[Hyperdrive] Game restored to original state." -ForegroundColor Green
+    Write-OK "Game restored to original state."
     exit 0
 }
 
-# ── Build ─────────────────────────────────────────────────────────────────────
-Write-Host "`n[Hyperdrive] Building RimWorldStartupHelpers..." -ForegroundColor Cyan
-dotnet build $HelpersProj -c Release -v quiet
-if ($LASTEXITCODE -ne 0) { Write-Error "Helpers build failed." }
+# ── Already patched warning ───────────────────────────────────────────────────
+$HelperDeployed = Join-Path $ManagedDir "RimWorldStartupHelpers.dll"
+if ((Test-Path $BackupDll) -and (Test-Path $HelperDeployed) -and -not $Fresh) {
+    Write-Warn "Game appears to already be patched. Re-patching from backup (idempotent).`n  Use -Fresh if you updated RimWorld via Steam."
+}
 
-Write-Host "[Hyperdrive] Building PatcherTool..." -ForegroundColor Cyan
+# ── Build ─────────────────────────────────────────────────────────────────────
+Write-Step "Building RimWorldStartupHelpers..."
+dotnet build $HelpersProj -c Release -v quiet
+if ($LASTEXITCODE -ne 0) {
+    Write-Fail "Helpers build failed. Check that RimWorld is installed at:`n  $GameDir"
+    exit 1
+}
+
+Write-Step "Building PatcherTool..."
 dotnet build $PatcherProj -c Release -v quiet
-if ($LASTEXITCODE -ne 0) { Write-Error "PatcherTool build failed." }
+if ($LASTEXITCODE -ne 0) { Write-Fail "PatcherTool build failed."; exit 1 }
 
 # ── Run patcher ───────────────────────────────────────────────────────────────
-Write-Host "[Hyperdrive] Patching $ManagedDir ..." -ForegroundColor Cyan
+Write-Step "Patching $ManagedDir ..."
 
 $ExtraArgs = @()
 if ($Fresh)       { $ExtraArgs += "--fresh" }
 if ($Skip -ne "") { $ExtraArgs += "--skip=$Skip" }
 
 dotnet run --project $PatcherProj -c Release -- $ManagedDir $HelpersBin @ExtraArgs
-if ($LASTEXITCODE -ne 0) { Write-Error "Patching failed." }
+if ($LASTEXITCODE -ne 0) { Write-Fail "Patching failed."; exit 1 }
 
-Write-Host "`n[Hyperdrive] Done! Launch RimWorld and enjoy faster loading." -ForegroundColor Green
+Write-OK "Done! Launch RimWorld and enjoy faster loading."
