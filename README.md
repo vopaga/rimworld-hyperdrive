@@ -5,7 +5,7 @@
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-GPL--3.0-165d45?style=flat-square"></a>
 </p>
 
-IL-level patcher for RimWorld's startup pipeline. Uses Mono.Cecil to inject parallel mod loading, optimized XML parsing, and content prefetch directly into `Assembly-CSharp.dll`. Mod-agnostic — works with any modlist. Achieves **2.5× cold-start speedup** (261s → 102s) without modifying mods or redistributing game files.
+IL-level patcher for RimWorld's startup pipeline. Uses Mono.Cecil to inject parallel mod loading, optimized XML parsing, and content prefetch directly into `Assembly-CSharp.dll`. Mod-agnostic — works with any modlist. Achieves **3.6× cold-start speedup** (327s → 90s) without modifying mods or redistributing game files.
 
 ---
 
@@ -99,7 +99,7 @@ This reverts `Assembly-CSharp.dll` from the backup and removes `RimWorldStartupH
 
 ## How it works
 
-5 IL patches are injected by [Mono.Cecil](https://github.com/jbevain/cecil) at build time. No Harmony, no mod loader, no game restart required.
+6 IL patches (5 active) are injected by [Mono.Cecil](https://github.com/jbevain/cecil) at build time. No Harmony, no mod loader, no game restart required.
 
 | # | Target method | What changes |
 |---|--------------|-------------|
