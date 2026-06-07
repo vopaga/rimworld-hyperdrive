@@ -1,0 +1,20 @@
+# Build output
+src/*/bin/
+src/*/obj/
+
+# Backup / patched game DLLs — never commit game files
+*.original
+*.patching
+RimWorldStartupHelpers.dll
+
+# Benchmark / profiling artifacts
+benchmark_*.log
+startup-events-*.csv
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vs/
+*.user
+*.suo
+.idea/
