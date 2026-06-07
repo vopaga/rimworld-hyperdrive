@@ -12,7 +12,7 @@ IL-level patcher for RimWorld's startup pipeline. Uses Mono.Cecil to inject para
 ## Requirements
 
 - RimWorld 1.6 (Steam or DRM-free, Windows)
-- [.NET 8 SDK](https://dotnet.microsoft.com/download)
+- [.NET 8+ SDK](https://dotnet.microsoft.com/download) (.NET 8, 9, 10 — all work)
 
 ---
 
