@@ -51,26 +51,17 @@ if (-not (Test-Path (Join-Path $ManagedDir "Assembly-CSharp.dll"))) {
     Write-Error "Assembly-CSharp.dll not found in: $ManagedDir`nCheck -GameDir path."
 }
 
-# ── Detect release (pre-built) vs dev (build from source) ────────────────────
-$ReleasePatcher = Join-Path $ScriptDir "PatcherTool.exe"
-$ReleaseHelpers = Join-Path $ScriptDir "RimWorldStartupHelpers.dll"
-$IsRelease      = (Test-Path $ReleasePatcher) -and (Test-Path $ReleaseHelpers)
+# Expose game dir to MSBuild so Helpers.csproj can resolve HintPaths
+$env:RimWorldDir = $GameDir
 
-if ($IsRelease) {
-    $HelpersBin = $ScriptDir
-} else {
-    $env:RimWorldDir = $GameDir
-    $HelpersProj = Join-Path $ScriptDir "src\Helpers\Helpers.csproj"
-    $PatcherProj = Join-Path $ScriptDir "src\PatcherTool\PatcherTool.csproj"
-    $HelpersBin  = Join-Path $ScriptDir "src\Helpers\bin\Release\net472"
-}
+$HelpersProj = Join-Path $ScriptDir "src\Helpers\Helpers.csproj"
+$PatcherProj = Join-Path $ScriptDir "src\PatcherTool\PatcherTool.csproj"
+$HelpersBin  = Join-Path $ScriptDir "src\Helpers\bin\Release\net472"
 
 # ── Restore mode ──────────────────────────────────────────────────────────────
 if ($Restore) {
     Write-Host "`n[Hyperdrive] Restoring original DLL..." -ForegroundColor Cyan
-    $ExtraArgs = @($ManagedDir, $HelpersBin, "--restore")
-    if ($IsRelease) { & $ReleasePatcher @ExtraArgs }
-    else            { dotnet run --project $PatcherProj -c Release -- @ExtraArgs }
+    dotnet run --project $PatcherProj -c Release -- $ManagedDir $HelpersBin --restore
     if ($LASTEXITCODE -ne 0) { exit 1 }
 
     $HelperDeployed = Join-Path $ManagedDir "RimWorldStartupHelpers.dll"
@@ -82,26 +73,23 @@ if ($Restore) {
     exit 0
 }
 
-# ── Build (dev mode only) ─────────────────────────────────────────────────────
-if (-not $IsRelease) {
-    Write-Host "`n[Hyperdrive] Building RimWorldStartupHelpers..." -ForegroundColor Cyan
-    dotnet build $HelpersProj -c Release -v quiet
-    if ($LASTEXITCODE -ne 0) { Write-Error "Helpers build failed." }
+# ── Build ─────────────────────────────────────────────────────────────────────
+Write-Host "`n[Hyperdrive] Building RimWorldStartupHelpers..." -ForegroundColor Cyan
+dotnet build $HelpersProj -c Release -v quiet
+if ($LASTEXITCODE -ne 0) { Write-Error "Helpers build failed." }
 
-    Write-Host "[Hyperdrive] Building PatcherTool..." -ForegroundColor Cyan
-    dotnet build $PatcherProj -c Release -v quiet
-    if ($LASTEXITCODE -ne 0) { Write-Error "PatcherTool build failed." }
-}
+Write-Host "[Hyperdrive] Building PatcherTool..." -ForegroundColor Cyan
+dotnet build $PatcherProj -c Release -v quiet
+if ($LASTEXITCODE -ne 0) { Write-Error "PatcherTool build failed." }
 
 # ── Run patcher ───────────────────────────────────────────────────────────────
 Write-Host "[Hyperdrive] Patching $ManagedDir ..." -ForegroundColor Cyan
 
-$ExtraArgs = @($ManagedDir, $HelpersBin)
+$ExtraArgs = @()
 if ($Fresh)       { $ExtraArgs += "--fresh" }
 if ($Skip -ne "") { $ExtraArgs += "--skip=$Skip" }
 
-if ($IsRelease) { & $ReleasePatcher @ExtraArgs }
-else            { dotnet run --project $PatcherProj -c Release -- @ExtraArgs }
+dotnet run --project $PatcherProj -c Release -- $ManagedDir $HelpersBin @ExtraArgs
 if ($LASTEXITCODE -ne 0) { Write-Error "Patching failed." }
 
 Write-Host "`n[Hyperdrive] Done! Launch RimWorld and enjoy faster loading." -ForegroundColor Green

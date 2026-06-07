@@ -12,26 +12,20 @@ IL-level patcher for RimWorld's startup pipeline. Uses Mono.Cecil to inject para
 ## Requirements
 
 - RimWorld 1.6 (Steam or DRM-free, Windows)
-- [.NET 8 SDK](https://dotnet.microsoft.com/download) — only if building from source
+- [.NET 8 SDK](https://dotnet.microsoft.com/download)
 
 ---
 
 ## Quick start
 
-**Option A — Download release (no build tools needed):**
-
 1. Download the latest ZIP from [Releases](../../releases/latest) and unzip it anywhere
 2. Run:
 ```powershell
+# Steam default path — auto-detected
 .\patch.ps1
-```
 
-**Option B — Build from source (requires [.NET 8 SDK](https://dotnet.microsoft.com/download)):**
-
-```powershell
-git clone https://github.com/YOUR_USERNAME/rimworld-hyperdrive
-cd rimworld-hyperdrive
-.\patch.ps1
+# Or specify a custom path
+.\patch.ps1 -GameDir "D:\Games\RimWorld"
 ```
 
 Launch RimWorld normally through Steam — the patched DLL is already in place.

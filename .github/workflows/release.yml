@@ -10,54 +10,23 @@ permissions:
 
 jobs:
   release:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.x'
-
-      - name: Build Helpers (net472)
-        run: dotnet build src/Helpers/Helpers.csproj -c Release -v quiet
-        env:
-          RimWorldDir: ""   # HintPaths not needed on CI — Cecil is the only real dep
-
-      - name: Publish PatcherTool (self-contained, win-x64, single file)
-        run: >
-          dotnet publish src/PatcherTool/PatcherTool.csproj
-          -c Release
-          -r win-x64
-          --self-contained true
-          -p:PublishSingleFile=true
-          -p:DebugType=none
-          -o publish
-
-      - name: Assemble release folder
-        shell: pwsh
+      - name: Create release archive
         run: |
-          $ver    = "${{ github.ref_name }}"
-          $folder = "rimworld-hyperdrive-$ver"
-          New-Item -ItemType Directory $folder | Out-Null
-
-          Copy-Item patch.ps1                                              $folder/
-          Copy-Item README.md                                              $folder/
-          Copy-Item publish/RimWorldPatcher.exe                            $folder/PatcherTool.exe
-          Copy-Item src/Helpers/bin/Release/net472/RimWorldStartupHelpers.dll $folder/
-
-          echo "RELEASE_DIR=$folder" >> $env:GITHUB_ENV
-
-      - name: Create ZIP + checksum
-        shell: pwsh
-        run: |
-          $ver     = "${{ github.ref_name }}"
-          $zip     = "rimworld-hyperdrive-$ver-win-x64.zip"
-          Compress-Archive -Path "$env:RELEASE_DIR/*" -DestinationPath $zip
-          $hash    = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
-          "$hash  $zip" | Out-File -Encoding ascii checksums.sha256
-          Write-Host "SHA256: $hash"
-          echo "ZIP_NAME=$zip" >> $env:GITHUB_ENV
+          VER="${{ github.ref_name }}"
+          ZIP="rimworld-hyperdrive-${VER}.zip"
+          zip -r "$ZIP" \
+            patch.ps1 \
+            README.md \
+            LICENSE \
+            Directory.Build.props \
+            src/
+          sha256sum "$ZIP" > checksums.sha256
+          echo "ZIP_NAME=$ZIP" >> "$GITHUB_ENV"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -67,3 +36,4 @@ jobs:
           files: |
             ${{ env.ZIP_NAME }}
             checksums.sha256
+
