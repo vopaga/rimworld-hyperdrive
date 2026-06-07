@@ -109,15 +109,10 @@ class Program
         Console.WriteLine($"Helpers : {helpersAsm.FullName} ({helpersModule.Types.Count} types)");
 
         // ── Apply patches ─────────────────────────────────────────────────────
-        var skipPatches = new System.Collections.Generic.HashSet<int>();
         // Patch 4 (ParseAndProcessXML body replacement) is permanently disabled:
         // it breaks Harmony transpiler patches from mods targeting that method,
         // and contributes only ~1s vs the 55s+ saved by Patches 1, 3, 5, 6.
         skipPatches.Add(4);
-        foreach (var a in args)
-            if (a.StartsWith("--skip="))
-                foreach (var p in a.Substring(7).Split(','))
-                    if (int.TryParse(p.Trim(), out int n)) skipPatches.Add(n);
 
         Console.WriteLine("\n── Applying patches ──────────────────────────────");
         bool success = true;

@@ -1,30 +1,85 @@
 # rimworld-hyperdrive
 
+<p>
+  <a href="https://ko-fi.com/vopaga"><img alt="Support on Ko-fi" src="https://img.shields.io/badge/support-Ko--fi-FF5E5B?style=flat-square&logo=ko-fi&logoColor=white"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-GPL--3.0-165d45?style=flat-square"></a>
+</p>
+
 IL-level patcher for RimWorld's startup pipeline. Uses Mono.Cecil to inject parallel mod loading, optimized XML parsing, and content prefetch directly into `Assembly-CSharp.dll`. Mod-agnostic — works with any modlist. Achieves **2.5× cold-start speedup** (261s → 102s) without modifying mods or redistributing game files.
 
 ---
 
 ## Requirements
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download)
 - RimWorld 1.6 (Steam or DRM-free, Windows)
+- [.NET 8 SDK](https://dotnet.microsoft.com/download) — only if building from source
 
 ---
 
 ## Quick start
 
+**Option A — Download release (no build tools needed):**
+
+1. Download the latest ZIP from [Releases](../../releases/latest) and unzip it anywhere
+2. Run:
+```powershell
+.\patch.ps1
+```
+
+**Option B — Build from source (requires [.NET 8 SDK](https://dotnet.microsoft.com/download)):**
+
 ```powershell
 git clone https://github.com/YOUR_USERNAME/rimworld-hyperdrive
 cd rimworld-hyperdrive
-
-# Patch your Steam installation (default path auto-detected)
 .\patch.ps1
-
-# Or specify a custom path
-.\patch.ps1 -GameDir "D:\Games\RimWorld"
 ```
 
 Launch RimWorld normally through Steam — the patched DLL is already in place.
+
+<details>
+<summary>Example output</summary>
+
+```
+[Hyperdrive] Building RimWorldStartupHelpers...
+[Hyperdrive] Building PatcherTool...
+[Hyperdrive] Patching C:\Program Files (x86)\Steam\steamapps\common\RimWorld\RimWorldWin64_Data\Managed ...
+══════════════════════════════════════════════
+RimWorld Hyperdrive — DLL Patcher
+══════════════════════════════════════════════
+Target : ...\Managed\Assembly-CSharp.dll
+Helpers: ...\RimWorldStartupHelpers.dll
+Backup created: ...\Assembly-CSharp.dll.original
+
+Loading assemblies...
+Target  : Assembly-CSharp, Version=1.6.9438.37837 (9230 types)
+Helpers : RimWorldStartupHelpers, Version=0.0.0.0 (3 types)
+
+── Applying patches ──────────────────────────────
+[Patch1] OK — Thread count changed from 2 to Max(3, ProcessorCount-1)
+[Patch2] Patched 3 RegisterObjectWantsCrossRef overload(s)
+[Patch2] Patched RegisterListWantsCrossRef
+[Patch2] Patched RegisterDictionaryWantsCrossRef
+[Patch3] LoadModXML → LoadModXML_Parallel
+[Patch4] ParseAndProcessXML SKIPPED (permanently disabled)
+[Patch5] LoadTextureViaImageConversion → cache-first byte loading
+[Patch6] XPath calls redirected: 11 across 11 method(s).
+
+── Writing patched assembly ──────────────────────
+Written: ...\Assembly-CSharp.dll
+
+── Deploying helpers DLL ──────────────────────────────
+Deployed: ...\RimWorldStartupHelpers.dll
+
+══════════════════════════════════════════════
+ALL PATCHES APPLIED SUCCESSFULLY
+Startup time: expect ~60% of vanilla with a heavy modlist.
+To restore original: run patch.ps1 -Restore
+══════════════════════════════════════════════
+
+[Hyperdrive] Done! Launch RimWorld and enjoy faster loading.
+```
+
+</details>
 
 ---
 
