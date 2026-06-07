@@ -29,7 +29,6 @@ static class CrossRefPatch
 
     private static TypeDefinition? _cachedObjectType;
     private static TypeDefinition? _cachedMonitorType;
-    private static TypeDefinition? _cachedVoidType;
 
     private static TypeDefinition GetObjectType(ModuleDefinition module)
     {
