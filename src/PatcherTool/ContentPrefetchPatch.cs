@@ -32,12 +32,12 @@ namespace RimWorldPatcher;
 /// </summary>
 static class ContentPrefetchPatch
 {
-    public static void Apply(ModuleDefinition target, ModuleDefinition helpers)
+    public static void Apply(ModuleDefinition target)
     {
         Console.WriteLine("[Patch5] Patching LoadTextureViaImageConversion for cache pre-fetch...");
 
-        // Import GetCachedBytes from helpers DLL
-        var helperType   = helpers.MustGetType("Verse.StartupOptimizer.OptimizedModManager");
+        // GetCachedBytes is now merged into the target module
+        var helperType   = target.MustGetType("Verse.StartupOptimizer.OptimizedModManager");
         var getCachedRef = target.ImportReference(helperType.MustGetMethod("GetCachedBytes"));
 
         // ModContentLoader`1 is a generic type, but LoadTextureViaImageConversion is non-generic
