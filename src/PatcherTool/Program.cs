@@ -1,5 +1,6 @@
 using Mono.Cecil;
 using Mono.Cecil.Rocks;
+using MonoMod;
 using System;
 using System.IO;
 using System.Linq;
@@ -73,40 +74,30 @@ class Program
             Console.WriteLine("Restored clean original from backup (ensures idempotent re-patch).");
         }
 
-        // ── Load assemblies ──────────────────────────────────────────────────
-        var resolver = new DefaultAssemblyResolver();
-        resolver.AddSearchDirectory(gameDir);
-        var readerParams = new ReaderParameters
-        {
-            AssemblyResolver = resolver,
-            ReadWrite = false,
-            ReadSymbols = false,
-            InMemory = true
-        };
-
-        Console.WriteLine("\nLoading assemblies...");
-        AssemblyDefinition targetAsm;
-        AssemblyDefinition helpersAsm;
+        // ── Load + merge helper into Assembly-CSharp (via MonoMod) ────────────
+        // Instead of shipping RimWorldStartupHelpers.dll in Managed/, merge its types
+        // straight into Assembly-CSharp. MonoMod copies the new types and relinks the
+        // helper's references to Assembly-CSharp back into the module itself.
+        // (A separate DLL in Managed/ crashes Prepatcher — see issue #3.)
+        Console.WriteLine("\nLoading + merging helper into Assembly-CSharp...");
+        MonoModder modder;
         try
         {
-            targetAsm  = AssemblyDefinition.ReadAssembly(targetDll, readerParams);
-            helpersAsm = AssemblyDefinition.ReadAssembly(helpersDll, new ReaderParameters
-            {
-                AssemblyResolver = resolver,
-                ReadSymbols = false
-            });
+            modder = new MonoModder { InputPath = targetDll, MissingDependencyThrow = false };
+            modder.DependencyDirs.Add(gameDir);
+            modder.Read();
+            modder.ReadMod(helpersDll);
+            modder.MapDependencies();
+            modder.AutoPatch();
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine("ERROR loading assemblies: " + ex);
+            Console.Error.WriteLine("ERROR merging helper into Assembly-CSharp: " + ex);
             return 1;
         }
 
-        var targetModule  = targetAsm.MainModule;
-        var helpersModule = helpersAsm.MainModule;
-
-        Console.WriteLine($"Target  : {targetAsm.FullName} ({targetModule.Types.Count} types)");
-        Console.WriteLine($"Helpers : {helpersAsm.FullName} ({helpersModule.Types.Count} types)");
+        var targetModule = modder.Module;
+        Console.WriteLine($"Target  : {targetModule.Assembly.FullName} ({targetModule.Types.Count} types after merge)");
 
         // ── Apply patches ─────────────────────────────────────────────────────
         // Patch 4 (ParseAndProcessXML body replacement) is permanently disabled:
@@ -131,25 +122,37 @@ class Program
         {
             bool applyLoad  = !skipPatches.Contains(3);
             bool applyParse = !skipPatches.Contains(4);
-            try { ModManagerPatch.Apply(targetModule, helpersModule, applyLoad, applyParse); }
+            try { ModManagerPatch.Apply(targetModule, applyLoad, applyParse); }
             catch (Exception ex)
             { Console.Error.WriteLine("[Patch3/4] FAILED: " + ex.Message); Console.Error.WriteLine(ex.StackTrace); success = false; }
         }
         else Console.WriteLine("[Patch3/4] SKIPPED");
 
         if (!skipPatches.Contains(5)) try
-        { ContentPrefetchPatch.Apply(targetModule, helpersModule); }
+        { ContentPrefetchPatch.Apply(targetModule); }
         catch (Exception ex) { Console.Error.WriteLine("[Patch5] FAILED: " + ex.Message); success = false; }
         else Console.WriteLine("[Patch5] SKIPPED");
 
         if (!skipPatches.Contains(6)) try
-        { ApplyPatchesPatch.Apply(targetModule, helpersModule); }
+        { ApplyPatchesPatch.Apply(targetModule); }
         catch (Exception ex) { Console.Error.WriteLine("[Patch6] FAILED: " + ex.Message); success = false; }
         else Console.WriteLine("[Patch6] SKIPPED");
 
         if (!success)
         {
             Console.Error.WriteLine("\nOne or more patches FAILED. Assembly NOT written.");
+            modder.Dispose();
+            return 1;
+        }
+
+        // ── Safety: no MonoMod / helper-DLL refs may leak into the output ─────
+        var leakedRefs = targetModule.AssemblyReferences
+            .Where(r => r.Name.StartsWith("MonoMod") || r.Name == "RimWorldStartupHelpers")
+            .Select(r => r.Name).Distinct().ToList();
+        if (leakedRefs.Count > 0)
+        {
+            Console.Error.WriteLine("ERROR: merged assembly still references: " + string.Join(", ", leakedRefs));
+            modder.Dispose();
             return 1;
         }
 
@@ -158,23 +161,27 @@ class Program
         try
         {
             string tempPath = targetDll + ".patching";
-            targetAsm.Write(tempPath);
-            targetAsm.Dispose();
+            modder.Write(outputPath: tempPath);
+            modder.Dispose();                       // releases the read lock on targetDll
             if (File.Exists(targetDll)) File.Delete(targetDll);
             File.Move(tempPath, targetDll);
             Console.WriteLine($"Written: {targetDll}");
         }
         catch (Exception ex) { Console.Error.WriteLine("ERROR writing assembly: " + ex); return 1; }
 
-        // ── Deploy helpers DLL to Managed/ ───────────────────────────────────
-        Console.WriteLine("\n── Deploying helpers DLL ──────────────────────────────");
-        string helpersDeployPath = Path.Combine(gameDir, "RimWorldStartupHelpers.dll");
+        // ── Remove helper DLL left over from older versions ──────────────────
+        // v1.0.x deployed RimWorldStartupHelpers.dll here; it is now merged in, and an
+        // orphaned copy crashes Prepatcher (issue #3), so delete it on (re)patch.
+        string staleHelper = Path.Combine(gameDir, "RimWorldStartupHelpers.dll");
         try
         {
-            File.Copy(helpersDll, helpersDeployPath, overwrite: true);
-            Console.WriteLine($"Deployed: {helpersDeployPath}");
+            if (File.Exists(staleHelper))
+            {
+                File.Delete(staleHelper);
+                Console.WriteLine($"Removed stale helper DLL: {staleHelper}");
+            }
         }
-        catch (Exception ex) { Console.Error.WriteLine("ERROR deploying helpers DLL: " + ex); return 1; }
+        catch (Exception ex) { Console.Error.WriteLine("WARN: could not remove stale helper DLL: " + ex.Message); }
 
         Console.WriteLine("\n══════════════════════════════════════════════");
         Console.WriteLine("ALL PATCHES APPLIED SUCCESSFULLY");

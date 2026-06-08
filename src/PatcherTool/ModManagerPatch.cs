@@ -16,13 +16,13 @@ namespace RimWorldPatcher;
 /// </summary>
 static class ModManagerPatch
 {
-    public static void Apply(ModuleDefinition target, ModuleDefinition helpers,
+    public static void Apply(ModuleDefinition target,
         bool applyLoadXML = true, bool applyParseXML = true)
     {
         if (!applyLoadXML && !applyParseXML) return;
-        Console.WriteLine("[Patch3/4] Patching LoadedModManager with external helpers DLL...");
+        Console.WriteLine("[Patch3/4] Patching LoadedModManager with merged helper types...");
 
-        var helperType = helpers.MustGetType("Verse.StartupOptimizer.OptimizedModManager");
+        var helperType = target.MustGetType("Verse.StartupOptimizer.OptimizedModManager");
         var modMgr           = target.MustGetType("Verse.LoadedModManager");
         var runningModsField = modMgr.Fields.First(f => f.Name == "runningMods");
         var patchedDefsField = modMgr.Fields.First(f => f.Name == "patchedDefs");

@@ -130,26 +130,11 @@ To simulate a cold run without rebooting, use [RAMMap](https://learn.microsoft.c
 
 ## Compatibility
 
-- Works with **any mod list** — patches target engine loading infrastructure, not individual mods (one exception: [Prepatcher](#known-issues))
+- Works with **any mod list** — patches target engine loading infrastructure, not individual mods
 - Mod authors do **not** need to change anything
 - Existing mods load correctly and faster
 - Hot-reload path preserved and tested
-
----
-
-## Known issues
-
-### Incompatible with Prepatcher
-
-[Prepatcher](https://steamcommunity.com/workshop/filedetails/?id=2934420800) (by Zetrith and Charlotte) is **not compatible** with this tool. Prepatcher also rewrites `Assembly-CSharp.dll` at the IL level before the game starts, so both are editing the same engine assembly with uncoordinated patches. Running them together can crash on startup or silently drop one tool's changes.
-
-If you use Prepatcher, restore the original DLL before launching:
-
-```powershell
-.\patch.ps1 -Restore
-```
-
-The two might be reconcilable later (both do IL patching, just at different stages), but for now treat them as mutually exclusive.
+- Compatible with [Prepatcher](https://steamcommunity.com/workshop/filedetails/?id=2934420800) — the helper is merged into `Assembly-CSharp.dll`, so there's no separate DLL for Prepatcher to choke on
 
 ---
 

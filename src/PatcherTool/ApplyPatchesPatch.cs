@@ -20,11 +20,11 @@ namespace RimWorldPatcher;
 /// </summary>
 static class ApplyPatchesPatch
 {
-    public static void Apply(ModuleDefinition target, ModuleDefinition helpers)
+    public static void Apply(ModuleDefinition target)
     {
         Console.WriteLine("[Patch6] Patching ApplyPatches with FastXPath index...");
 
-        var fastXPathType       = helpers.MustGetType("Verse.StartupOptimizer.FastXPath");
+        var fastXPathType       = target.MustGetType("Verse.StartupOptimizer.FastXPath");
         var buildIndexRef       = target.ImportReference(fastXPathType.MustGetMethod("BuildIndex"));
         var clearIndexRef       = target.ImportReference(fastXPathType.MustGetMethod("ClearIndex"));
         var fastSelectNodesRef  = target.ImportReference(fastXPathType.MustGetMethod("FastSelectNodes"));
