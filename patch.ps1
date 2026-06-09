@@ -54,6 +54,19 @@ function Write-OK { param($msg) Write-Host "[Hyperdrive] $msg" -ForegroundColor 
 function Write-Fail { param($msg) Write-Host "`n[Hyperdrive] ERROR: $msg" -ForegroundColor Red }
 function Write-Warn { param($msg) Write-Host "[Hyperdrive] WARNING: $msg" -ForegroundColor Yellow }
 
+# Detects a patched Assembly-CSharp.dll by scanning for our merged helper namespace.
+# The old side-car RimWorldStartupHelpers.dll is now merged in and deleted, so its presence
+# is no longer a reliable "is patched" signal - inspect the DLL itself instead.
+function Test-Patched {
+    param($dll)
+    if (-not (Test-Path $dll)) { return $false }
+    try {
+        $bytes = [System.IO.File]::ReadAllBytes($dll)
+        return [System.Text.Encoding]::ASCII.GetString($bytes).Contains("StartupOptimizer")
+    }
+    catch { return $false }
+}
+
 # ------------------------------------------------------------------------------- OS check -------------------------------------------------------------------------------
 # $IsWindows is $null in Windows PowerShell 5.1 (only defined in PS Core 6+),
 # so check for explicit $false to avoid false positives on Windows.
@@ -147,8 +160,8 @@ if ($Restore) {
 # -Fresh discards the existing backup and captures the CURRENT DLL as the new clean
 # original. If the current DLL is still patched (no Steam update happened), this
 # permanently destroys the clean backup. Refuse unless the user confirms.
-if ($Fresh -and (Test-Path $HelperDeployed)) {
-    Write-Warn "RimWorldStartupHelpers.dll is present - the current Assembly-CSharp.dll may already be patched."
+if ($Fresh -and (Test-Patched $TargetDll)) {
+    Write-Warn "The current Assembly-CSharp.dll is already PATCHED."
     Write-Warn "-Fresh will capture the CURRENT DLL as the new clean backup, overwriting the existing one."
     Write-Warn "Only continue if Steam has just re-downloaded a fresh, unpatched DLL."
     $answer = Read-Host "Continue with -Fresh? (y/N)"
@@ -159,7 +172,7 @@ if ($Fresh -and (Test-Path $HelperDeployed)) {
 }
 
 # ------------------------------------------------------------------------------- Already patched warning -------------------------------------------------------------------------------
-if ((Test-Path $BackupDll) -and (Test-Path $HelperDeployed) -and -not $Fresh) {
+if ((Test-Path $BackupDll) -and (Test-Patched $TargetDll) -and -not $Fresh) {
     Write-Warn "Game appears to already be patched. Re-patching from backup (idempotent).`n  Use -Fresh if you updated RimWorld via Steam."
 }
 

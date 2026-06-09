@@ -26,12 +26,21 @@ namespace Verse.StartupOptimizer
         private static volatile Task _prefetchTask = null;
         private static volatile bool _prefetchStarted = false;
 
+        // Skip pathologically large individual files; everything else is cached and then
+        // evicted on first read (GetCachedBytes), so the cache drains during the texture
+        // phase instead of being held for the whole session. No total cap on purpose: a cap
+        // starves the optimization on big modlists (most textures end up uncached -> the
+        // main thread reads them cold from disk, which is the slow path we're avoiding).
+        private const long MaxFileBytes = 16L * 1024 * 1024;         // skip files > 16 MB
+        private static long _prefetchBytes;
+
         /// <summary>Called by patched LoadModContent — starts background byte pre-fetch.</summary>
         internal static void StartContentPrefetch(List<ModContentPack> runningMods)
         {
             if (_prefetchStarted) return;
             _prefetchStarted = true;
             _byteCache.Clear();
+            _prefetchBytes = 0;
 
             _prefetchTask = Task.Run(() =>
             {
@@ -39,33 +48,35 @@ namespace Verse.StartupOptimizer
                 {
                     var allFiles = new ConcurrentBag<string>();
 
-                    // Collect all texture + string files across all mods in parallel
+                    // Collect texture files across all mods in parallel. Only textures are
+                    // consumed from the cache (the LoadTextureViaImageConversion patch); sounds
+                    // and strings used to be prefetched too but nothing ever read them back,
+                    // so they were pure wasted RAM — dropped.
                     Parallel.ForEach(runningMods,
                         new ParallelOptions { MaxDegreeOfParallelism = ThreadCount },
                         mod =>
                         {
                             foreach (var folder in mod.foldersToLoadDescendingOrder)
-                            {
                                 CollectFiles(folder, "Textures", allFiles, IsTextureExt);
-                                CollectFiles(folder, "Sounds", allFiles, IsAudioExt);
-                                CollectFiles(folder, "Strings", allFiles, IsStringExt);
-                            }
                         });
 
-                    // Read all bytes in parallel
+                    // Read bytes in parallel, skipping only pathologically large files.
                     Parallel.ForEach(allFiles,
                         new ParallelOptions { MaxDegreeOfParallelism = ThreadCount },
                         path =>
                         {
                             try
                             {
-                                if (File.Exists(path))
-                                    _byteCache.TryAdd(path, File.ReadAllBytes(path));
+                                var info = new FileInfo(path);
+                                if (!info.Exists || info.Length > MaxFileBytes) return;
+                                if (_byteCache.TryAdd(path, File.ReadAllBytes(path)))
+                                    Interlocked.Add(ref _prefetchBytes, info.Length);
                             }
                             catch { /* silently skip unreadable files */ }
                         });
 
-                    Log.Message($"[StartupOpt] Content pre-fetch done: {_byteCache.Count} files cached.");
+                    Log.Message($"[StartupOpt] Texture pre-fetch done: {_byteCache.Count} files, " +
+                        $"~{Interlocked.Read(ref _prefetchBytes) / (1024 * 1024)} MB (evicted on use).");
                 }
                 catch (Exception ex)
                 {
@@ -77,8 +88,13 @@ namespace Verse.StartupOptimizer
         /// <summary>Returns pre-fetched bytes for a file path, or null if not cached.</summary>
         public static byte[] GetCachedBytes(string fullPath)
         {
-            if (_byteCache.TryGetValue(fullPath, out var bytes))
+            // Evict on first read: once a texture's bytes are handed to Unity we no longer
+            // need them, so free the memory immediately instead of holding it all session.
+            if (_byteCache.TryRemove(fullPath, out var bytes))
+            {
+                Interlocked.Add(ref _prefetchBytes, -bytes.Length);
                 return bytes;
+            }
             return null;
         }
 
@@ -114,14 +130,6 @@ namespace Verse.StartupOptimizer
             string e = ext.ToLowerInvariant();
             return e == ".png" || e == ".jpg" || e == ".jpeg" || e == ".psd" || e == ".dds";
         }
-        private static bool IsAudioExt(string ext)
-        {
-            string e = ext.ToLowerInvariant();
-            return e == ".wav" || e == ".mp3" || e == ".ogg";
-        }
-        private static bool IsStringExt(string ext)
-            => ext.ToLowerInvariant() == ".txt";
-
         // ── LoadModXML parallel replacement ───────────────────────────────────
 
         internal static List<LoadableXmlAsset> LoadModXML_Parallel(

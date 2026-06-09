@@ -43,8 +43,11 @@ static class ContentPrefetchPatch
         // ModContentLoader`1 is a generic type, but LoadTextureViaImageConversion is non-generic
         var loaderType = target.Types.FirstOrDefault(t => t.Name == "ModContentLoader`1")
             ?? throw new Exception("ModContentLoader`1 not found");
+        // Method was renamed across 1.6 builds (LoadTexture -> LoadTextureViaImageConversion).
+        // Try the current name, then the older one, before giving up.
         var method = loaderType.Methods.FirstOrDefault(m => m.Name == "LoadTextureViaImageConversion")
-            ?? throw new Exception("LoadTextureViaImageConversion not found");
+            ?? loaderType.Methods.FirstOrDefault(m => m.Name == "LoadTexture")
+            ?? throw new Exception("LoadTextureViaImageConversion/LoadTexture not found");
 
         var body         = method.Body;
         var instructions = body.Instructions;

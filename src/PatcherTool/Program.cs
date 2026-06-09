@@ -55,9 +55,21 @@ class Program
         if (!File.Exists(helpersDll)) { Console.Error.WriteLine($"ERROR: Helpers not found: {helpersDll}"); return 1; }
 
         // ── Backup / fresh ───────────────────────────────────────────────────
-        // --fresh: user signals a Steam update happened — discard the old backup
+        // --fresh: user signals a Steam update happened — discard the old backup and
+        // re-baseline from the current (assumed vanilla) DLL. Guard the data-loss case:
+        // if the current DLL is still PATCHED, capturing it as the "clean" backup would
+        // destroy the real original. Refuse in that case.
         if (freshRequested && File.Exists(backupDll))
         {
+            if (IsPatched(targetDll))
+            {
+                Console.Error.WriteLine(
+                    "ERROR: --fresh refused. The current Assembly-CSharp.dll is already PATCHED, so a fresh\n" +
+                    "backup would overwrite your clean original with a patched copy. If RimWorld was NOT\n" +
+                    "updated, just re-run without --fresh (it re-patches from the existing backup). If you\n" +
+                    "really did update the game, run --restore first, then patch normally.");
+                return 1;
+            }
             File.Delete(backupDll);
             Console.WriteLine("--fresh: Old backup removed. Creating fresh backup from current DLL.");
         }
@@ -128,9 +140,12 @@ class Program
         }
         else Console.WriteLine("[Patch3/4] SKIPPED");
 
+        // Patch 5 is the only version-fragile target (the texture method was renamed across
+        // 1.6 builds). It does all its lookups before mutating IL, so a miss can't half-apply.
+        // Treat a failure as a skip — the prefetch optimization is lost, not the whole patch.
         if (!skipPatches.Contains(5)) try
         { ContentPrefetchPatch.Apply(targetModule); }
-        catch (Exception ex) { Console.Error.WriteLine("[Patch5] FAILED: " + ex.Message); success = false; }
+        catch (Exception ex) { Console.Error.WriteLine("[Patch5] SKIPPED (could not apply, continuing): " + ex.Message); }
         else Console.WriteLine("[Patch5] SKIPPED");
 
         if (!skipPatches.Contains(6)) try
@@ -189,5 +204,17 @@ class Program
         Console.WriteLine("To restore original: run patch.ps1 -Restore");
         Console.WriteLine("══════════════════════════════════════════════");
         return 0;
+    }
+
+    // Detects a patched Assembly-CSharp by looking for our merged helper namespace, whose
+    // type/namespace names live as UTF-8 strings in the metadata. Vanilla DLLs never contain it.
+    static bool IsPatched(string dll)
+    {
+        try
+        {
+            var bytes = File.ReadAllBytes(dll);
+            return System.Text.Encoding.ASCII.GetString(bytes).Contains("StartupOptimizer");
+        }
+        catch { return false; }
     }
 }

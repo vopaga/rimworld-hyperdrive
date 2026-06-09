@@ -27,6 +27,15 @@ namespace Verse.StartupOptimizer
         // Using plain string avoids ValueTuple compatibility concerns on older Mono builds.
         private static Dictionary<string, XmlNode> _index;
 
+        // The document _index was built for. FastSelect* only trust the index for this exact
+        // document, so a stale index (e.g. if a prior ApplyPatches threw before ClearIndex) is
+        // never consulted against a different document.
+        private static XmlDocument _indexedDoc;
+
+        // Keys (type+defName) that appeared on more than one top-level node. Real SelectNodes
+        // returns ALL of them, so for these we must fall back instead of returning one node.
+        private static HashSet<string> _ambiguous;
+
         private static int _hits;
         private static int _misses;
         private static int _fallbacks;
@@ -42,6 +51,7 @@ namespace Verse.StartupOptimizer
             if (root == null) return;
 
             var idx = new Dictionary<string, XmlNode>(root.ChildNodes.Count + 512, StringComparer.Ordinal);
+            var ambiguous = new HashSet<string>(StringComparer.Ordinal);
             foreach (XmlNode child in root.ChildNodes)
             {
                 if (child.NodeType != XmlNodeType.Element) continue;
@@ -50,17 +60,25 @@ namespace Verse.StartupOptimizer
                 // .Trim() guards against incidental whitespace in XML formatting.
                 string defName = child.Attributes?["defName"]?.Value?.Trim()
                               ?? child["defName"]?.InnerText?.Trim();
+                if (string.IsNullOrEmpty(defName)) continue;
 
-                if (!string.IsNullOrEmpty(defName) && !idx.ContainsKey(MakeKey(child.LocalName, defName)))
-                    idx[MakeKey(child.LocalName, defName)] = child; // first writer wins: vanilla defs come first
+                string key = MakeKey(child.LocalName, defName);
+                if (idx.ContainsKey(key))
+                    ambiguous.Add(key);   // duplicate (type, defName): SelectNodes must return all
+                else
+                    idx[key] = child;     // first writer wins = first in document order
             }
             _index = idx;
+            _ambiguous = ambiguous;
+            _indexedDoc = doc;
         }
 
         /// <summary>Free index memory and log diagnostics after ApplyPatches completes.</summary>
         public static void ClearIndex()
         {
             _index = null;
+            _indexedDoc = null;
+            _ambiguous = null;
             UnityEngine.Debug.Log(
                 $"[FastXPath] ApplyPatches complete — hits={_hits}  misses={_misses}  fallbacks={_fallbacks}");
         }
@@ -68,8 +86,14 @@ namespace Verse.StartupOptimizer
         /// <summary>Replaces xml.SelectNodes(xpath). Called by Cecil-patched ApplyWorker methods.</summary>
         public static XmlNodeList FastSelectNodes(XmlDocument xml, string xpath)
         {
-            if (_index != null && TryExtract(xpath, out string typeName, out string defName, out string subPath))
+            if (_index != null && ReferenceEquals(xml, _indexedDoc)
+                && TryExtract(xpath, out string typeName, out string defName, out string subPath))
             {
+                // Multiple defs share this (type, defName): real SelectNodes returns them all,
+                // so a single-node answer would silently under-apply the patch. Fall back.
+                if (_ambiguous != null && _ambiguous.Contains(MakeKey(typeName, defName)))
+                { _fallbacks++; return xml.SelectNodes(xpath); }
+
                 XmlNode def = LookupDef(xml, typeName, defName);
                 if (def == null) { _misses++; return xml.SelectNodes(xpath); } // fallback: node may have been added dynamically by a prior PatchOperationAdd
 
@@ -92,7 +116,8 @@ namespace Verse.StartupOptimizer
         /// <summary>Replaces xml.SelectSingleNode(xpath). Called by Cecil-patched ApplyWorker methods.</summary>
         public static XmlNode FastSelectSingleNode(XmlDocument xml, string xpath)
         {
-            if (_index != null && TryExtract(xpath, out string typeName, out string defName, out string subPath))
+            if (_index != null && ReferenceEquals(xml, _indexedDoc)
+                && TryExtract(xpath, out string typeName, out string defName, out string subPath))
             {
                 XmlNode def = LookupDef(xml, typeName, defName);
                 if (def == null) { _misses++; return xml.SelectSingleNode(xpath); } // fallback: node may have been added dynamically by a prior PatchOperationAdd

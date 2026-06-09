@@ -13,9 +13,17 @@ namespace RimWorldHyperdrive.Patches
     // Patch 5: serve texture bytes from the background prefetch cache when available,
     // otherwise fall back to the original disk read. Equivalent to:
     //   byte[] data = OptimizedModManager.GetCachedBytes(file.FullPath) ?? file.ReadAllBytes();
-    [HarmonyPatch(typeof(ModContentLoader<Texture2D>), "LoadTextureViaImageConversion")]
+    [HarmonyPatch]
     public static class LoadTextureViaImageConversion_Patch
     {
+        // The texture method was renamed across 1.6 builds (LoadTexture ->
+        // LoadTextureViaImageConversion). Target whichever exists; if neither does, Patch()
+        // throws and the mod's fail-soft wrapper skips this patch. The transpiler below also
+        // no-ops if the ReadAllBytes pattern is absent, so targeting the wrong method is safe.
+        public static MethodBase TargetMethod()
+            => AccessTools.Method(typeof(ModContentLoader<Texture2D>), "LoadTextureViaImageConversion")
+            ?? AccessTools.Method(typeof(ModContentLoader<Texture2D>), "LoadTexture");
+
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator il)
         {
             var list = instructions.ToList();
