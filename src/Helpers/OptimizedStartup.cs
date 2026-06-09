@@ -15,6 +15,8 @@ namespace Verse.StartupOptimizer
     /// </summary>
     internal static class OptimizedModManager
     {
+        // Threads for our Task-based parallel work (mod XML load + texture warm-up). Separate
+        // knob from Patch 1's in-method thread count for XmlAssetsInModFolder (Max(3, CPU-1)).
         private static int ThreadCount => Math.Max(4, Environment.ProcessorCount - 1);
 
         // ── Texture/string byte pre-fetch cache ───────────────────────────────
@@ -189,8 +191,11 @@ namespace Verse.StartupOptimizer
             return combined;
         }
 
+#if !HYPERDRIVE_MOD
         // ── ParseAndProcessXML sequential replacement ─────────────────────────
         // (kept sequential — DirectXmlToObjectNew caches are not thread-safe)
+        // Excluded from the Harmony mod build (Patch 4 is permanently disabled); kept
+        // compiled into the build-time patcher helper for possible future research.
 
         internal static void ParseAndProcessXML_Optimized(
             XmlDocument xmlDoc,
@@ -319,5 +324,6 @@ namespace Verse.StartupOptimizer
                 else patchedDefs.Add(def);
             }
         }
+#endif
     }
 }

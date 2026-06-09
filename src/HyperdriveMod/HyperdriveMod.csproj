@@ -9,6 +9,8 @@
     <DebugType>none</DebugType>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <NoWarn>$(NoWarn);MSB3268;MSB3277;NU1701</NoWarn>
+    <!-- Excludes the build-time-only ParseAndProcessXML research code from the shipped mod. -->
+    <DefineConstants>$(DefineConstants);HYPERDRIVE_MOD</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <!-- Portable references (CI-buildable, no local Steam paths).

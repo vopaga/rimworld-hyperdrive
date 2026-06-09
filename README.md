@@ -61,9 +61,6 @@ Helpers : RimWorldStartupHelpers, Version=0.0.0.0 (3 types)
 ── Writing patched assembly ──────────────────────
 Written: ...\Assembly-CSharp.dll
 
-── Deploying helpers DLL ──────────────────────────────
-Deployed: ...\RimWorldStartupHelpers.dll
-
 ══════════════════════════════════════════════
 ALL PATCHES APPLIED SUCCESSFULLY
 Startup time: expect ~60% of vanilla with a heavy modlist.
@@ -110,7 +107,7 @@ This reverts `Assembly-CSharp.dll` from the backup and removes `RimWorldStartupH
 | 5 | `ModContentLoader.LoadTextureViaImageConversion` | Cache-first byte loading (files prefetched in background during XML phase) |
 | 6 | `LoadedModManager.ApplyPatches` | Hash-index XPath: O(n×m) full-doc scans → O(1) lookup per query |
 
-`RimWorldStartupHelpers.dll` (net472) is deployed alongside `Assembly-CSharp.dll` in `Managed/` and loaded automatically by Mono at runtime.
+The helper code (`Verse.StartupOptimizer.*`) is **merged directly into `Assembly-CSharp.dll`** by [MonoMod](https://github.com/MonoMod/MonoMod) at patch time — there's no separate DLL in `Managed/`. Earlier versions shipped a side-car `RimWorldStartupHelpers.dll`, which tripped up Prepatcher; merging fixed that.
 
 ---
 

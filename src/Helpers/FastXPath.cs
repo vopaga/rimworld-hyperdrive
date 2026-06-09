@@ -268,6 +268,9 @@ namespace Verse.StartupOptimizer
             return (t.Length > 0 && t.IndexOf('/') < 0) ? t : null;
         }
 
+        // defNames are constrained identifiers (no quotes/XPath metacharacters in practice),
+        // and this only runs on the rare stale-node refresh path which itself falls back to
+        // full XPath, so escaping the double-quote delimiter is sufficient here.
         private static string EscapeXPathValue(string val) => val.Replace("\"", "&quot;");
 
         // ── Minimal XmlNodeList implementations ──────────────────────────────
