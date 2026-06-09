@@ -26,7 +26,7 @@ Examples:
   ./patch.sh --fresh
   ./patch.sh --restore
 EOF
-    exit 0
+    exit "${1:-0}"
 }
 
 # arg parsing
@@ -46,7 +46,7 @@ while [[ $# -gt 0 ]]; do
             [[ -z "${2:-}" ]] && { red "--skip requires a comma-separated list of patch numbers."; exit 1; }
             SKIP="$2"; shift 2 ;;
         -h|--help)     usage ;;
-        *) red "Unknown option: $1"; usage ;;
+        *) red "Unknown option: $1"; usage 1 ;;
     esac
 done
 
