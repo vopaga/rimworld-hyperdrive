@@ -186,7 +186,7 @@ class Program
         Console.WriteLine("\n══════════════════════════════════════════════");
         Console.WriteLine("ALL PATCHES APPLIED SUCCESSFULLY");
         Console.WriteLine($"Startup time: expect ~60% of vanilla with a heavy modlist.");
-        Console.WriteLine("To restore original: run patch.ps1 -Restore");
+        Console.WriteLine("To restore original: re-run with --restore");
         Console.WriteLine("══════════════════════════════════════════════");
         return 0;
     }

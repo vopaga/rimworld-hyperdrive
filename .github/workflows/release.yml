@@ -21,6 +21,8 @@ jobs:
           ZIP="rimworld-hyperdrive-${VER}.zip"
           zip -r "$ZIP" \
             patch.ps1 \
+            patch.sh \
+            .gitattributes \
             README.md \
             LICENSE \
             Directory.Build.props \

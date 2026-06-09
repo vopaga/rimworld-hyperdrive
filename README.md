@@ -11,7 +11,7 @@ IL-level patcher for RimWorld's startup pipeline. Uses Mono.Cecil to inject para
 
 ## Requirements
 
-- RimWorld 1.6 (Steam or DRM-free, Windows)
+- RimWorld 1.6 (Steam or DRM-free, Windows or Linux)
 - [.NET 8+ SDK](https://dotnet.microsoft.com/download) (.NET 8, 9, 10 — all work)
 
 ---
@@ -75,6 +75,29 @@ To restore original: run patch.ps1 -Restore
 
 </details>
 
+### Linux
+
+```bash
+# Auto-detects Steam default path
+./patch.sh
+
+# Or specify a custom path
+./patch.sh --game-dir ~/.steam/steam/steamapps/common/RimWorld
+```
+
+<details>
+<summary>Proton / Wine users</summary>
+
+If you run RimWorld through Proton or Wine, point `--game-dir` at the game directory inside the Wine prefix. `patch.sh` probes which data folder exists (`RimWorldWin64_Data` vs `RimWorldLinux_Data`), so it handles both layouts automatically.
+
+```bash
+./patch.sh --game-dir ~/.steam/steam/steamapps/compatdata/294100/pfx/drive_c/Program\ Files\ \(x86\)/Steam/steamapps/common/RimWorld
+```
+
+The exact path depends on your Steam library location.
+
+</details>
+
 ---
 
 ## After a Steam game update
@@ -85,12 +108,22 @@ Steam will overwrite `Assembly-CSharp.dll`. Run with `-Fresh` to start from the 
 .\patch.ps1 -GameDir "..." -Fresh
 ```
 
+```bash
+# Linux
+./patch.sh --fresh
+```
+
 ---
 
 ## Restore original
 
 ```powershell
 .\patch.ps1 -GameDir "..." -Restore
+```
+
+```bash
+# Linux
+./patch.sh --restore
 ```
 
 This reverts `Assembly-CSharp.dll` from the backup and removes `RimWorldStartupHelpers.dll`.
