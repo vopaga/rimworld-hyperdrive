@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="220" height="44" viewBox="0 0 220 44" xmlns="http://www.w3.org/2000/svg">
+  <!-- button -->
+  <rect x="2" y="2" width="216" height="40" rx="10" fill="#2b2f3a" stroke="#54B2E6" stroke-width="3"/>
+  <!-- yayo: stylized white box/packet -->
+  <g stroke="#15181C" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="13" y="11" width="22" height="22" rx="4" fill="#f4f4f4"/>
+    <line x1="13" y1="18" x2="35" y2="18"/>
+    <line x1="24" y1="11" x2="24" y2="18"/>
+  </g>
+  <!-- label -->
+  <text x="46" y="29" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="bold" fill="#ffffff">Buy me a yayo</text>
+</svg>
