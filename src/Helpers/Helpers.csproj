@@ -28,7 +28,7 @@
     <ManagedDir Condition="'$(ManagedDir)' == '' AND Exists('$(RimWorldDir)/Contents/Resources/Data/Managed')">$(RimWorldDir)/Contents/Resources/Data/Managed</ManagedDir>
     <ManagedDir Condition="'$(ManagedDir)' == '' AND Exists('$(RimWorldDir)/RimWorldWin64_Data/Managed')">$(RimWorldDir)/RimWorldWin64_Data/Managed</ManagedDir>
     <!-- Fallback: assume Windows layout (backwards compat when RimWorldDir is unset or game not installed) -->
-    <ManagedDir Condition="'$(ManagedDir)' == ''">$(RimWorldDir)\RimWorldWin64_Data\Managed</ManagedDir>
+    <ManagedDir Condition="'$(ManagedDir)' == ''">$(RimWorldDir)/RimWorldWin64_Data/Managed</ManagedDir>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Assembly-CSharp">
