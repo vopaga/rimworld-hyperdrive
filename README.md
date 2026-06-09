@@ -1,6 +1,10 @@
-# rimworld-hyperdrive
+<p align="center">
+  <img src="assets/hyperdrive-icon.png" width="150" alt="Hyperdrive">
+</p>
 
-<p>
+<h1 align="center">Hyperdrive</h1>
+
+<p align="center">
   <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3741577108"><img alt="Steam Workshop" src="https://img.shields.io/badge/Steam-Workshop-1b2838?style=flat-square&logo=steam&logoColor=white"></a>
   <a href="https://ko-fi.com/vopaga"><img alt="Support on Ko-fi" src="https://img.shields.io/badge/support-Ko--fi-FF5E5B?style=flat-square&logo=ko-fi&logoColor=white"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-GPL--3.0-165d45?style=flat-square"></a>
