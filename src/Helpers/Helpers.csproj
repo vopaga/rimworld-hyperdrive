@@ -10,7 +10,7 @@
     <NoWarn>$(NoWarn);MSB3268;MSB3246;NU1701</NoWarn>
     <!--
       RimWorldDir must be set to the root of your RimWorld installation.
-      patch.ps1 / patch.sh sets this automatically via the -GameDir parameter.
+      patch.ps1 (-GameDir) / patch.sh (--game-dir) set this automatically.
       You can also set it manually:
         Windows: $env:RimWorldDir = "C:\Path\To\RimWorld"
         Linux:   export RIMWORLDDIR="/path/to/RimWorld"
