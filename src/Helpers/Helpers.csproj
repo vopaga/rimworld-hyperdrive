@@ -10,50 +10,65 @@
     <NoWarn>$(NoWarn);MSB3268;MSB3246;NU1701</NoWarn>
     <!--
       RimWorldDir must be set to the root of your RimWorld installation.
-      patch.ps1 sets this automatically via the -GameDir parameter.
-      You can also set it manually: $env:RimWorldDir = "C:\Path\To\RimWorld"
+      patch.ps1 (-GameDir) / patch.sh (--game-dir) set this automatically.
+      You can also set it manually:
+        Windows: $env:RimWorldDir = "C:\Path\To\RimWorld"
+        Linux:   export RIMWORLDDIR="/path/to/RimWorld"
+        macOS:   export RIMWORLDDIR="/path/to/RimWorld/RimWorldMac.app"
+
+      ManagedDir is auto-detected from whichever data folder exists under RimWorldDir.
+      Override directly:
+        Windows: $env:ManagedDir = "C:\Path\To\RimWorld\RimWorldWin64_Data\Managed"
+        Linux:   export MANAGEDDIR="/path/to/RimWorld/RimWorldLinux_Data/Managed"
+        macOS:   export MANAGEDDIR="/path/to/RimWorld/RimWorldMac.app/Contents/Resources/Data/Managed"
     -->
     <RimWorldDir Condition="'$(RimWorldDir)' == ''">$(RIMWORLDDIR)</RimWorldDir>
+    <ManagedDir Condition="'$(ManagedDir)' == '' AND '$(MANAGEDDIR)' != ''">$(MANAGEDDIR)</ManagedDir>
+    <ManagedDir Condition="'$(ManagedDir)' == '' AND Exists('$(RimWorldDir)/RimWorldLinux_Data/Managed')">$(RimWorldDir)/RimWorldLinux_Data/Managed</ManagedDir>
+    <ManagedDir Condition="'$(ManagedDir)' == '' AND Exists('$(RimWorldDir)/Contents/Resources/Data/Managed')">$(RimWorldDir)/Contents/Resources/Data/Managed</ManagedDir>
+    <ManagedDir Condition="'$(ManagedDir)' == '' AND Exists('$(RimWorldDir)/RimWorldWin64_Data/Managed')">$(RimWorldDir)/RimWorldWin64_Data/Managed</ManagedDir>
+    <!-- Fallback: assume Windows layout (backwards compat when RimWorldDir is unset or game not installed) -->
+    <ManagedDir Condition="'$(ManagedDir)' == ''">$(RimWorldDir)/RimWorldWin64_Data/Managed</ManagedDir>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Assembly-CSharp">
-      <HintPath>$(RimWorldDir)\RimWorldWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>$(ManagedDir)/Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="Assembly-CSharp-firstpass">
-      <HintPath>$(RimWorldDir)\RimWorldWin64_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
+      <HintPath>$(ManagedDir)/Assembly-CSharp-firstpass.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>$(RimWorldDir)\RimWorldWin64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>$(ManagedDir)/UnityEngine.CoreModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.IMGUIModule">
-      <HintPath>$(RimWorldDir)\RimWorldWin64_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
+      <HintPath>$(ManagedDir)/UnityEngine.IMGUIModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.TextRenderingModule">
-      <HintPath>$(RimWorldDir)\RimWorldWin64_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
+      <HintPath>$(ManagedDir)/UnityEngine.TextRenderingModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.AudioModule">
-      <HintPath>$(RimWorldDir)\RimWorldWin64_Data\Managed\UnityEngine.AudioModule.dll</HintPath>
+      <HintPath>$(ManagedDir)/UnityEngine.AudioModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.AssetBundleModule">
-      <HintPath>$(RimWorldDir)\RimWorldWin64_Data\Managed\UnityEngine.AssetBundleModule.dll</HintPath>
+      <HintPath>$(ManagedDir)/UnityEngine.AssetBundleModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.InputLegacyModule">
-      <HintPath>$(RimWorldDir)\RimWorldWin64_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+      <HintPath>$(ManagedDir)/UnityEngine.InputLegacyModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UI">
-      <HintPath>$(RimWorldDir)\RimWorldWin64_Data\Managed\UnityEngine.UI.dll</HintPath>
+      <HintPath>$(ManagedDir)/UnityEngine.UI.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.PhysicsModule">
-      <HintPath>$(RimWorldDir)\RimWorldWin64_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
+      <HintPath>$(ManagedDir)/UnityEngine.PhysicsModule.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Collections">
-      <HintPath>$(RimWorldDir)\RimWorldWin64_Data\Managed\Unity.Collections.dll</HintPath>
+      <HintPath>$(ManagedDir)/Unity.Collections.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Mathematics">
-      <HintPath>$(RimWorldDir)\RimWorldWin64_Data\Managed\Unity.Mathematics.dll</HintPath>
+      <HintPath>$(ManagedDir)/Unity.Mathematics.dll</HintPath>
     </Reference>
     <Reference Include="Unity.TextMeshPro">
-      <HintPath>$(RimWorldDir)\RimWorldWin64_Data\Managed\Unity.TextMeshPro.dll</HintPath>
+      <HintPath>$(ManagedDir)/Unity.TextMeshPro.dll</HintPath>
     </Reference>
     <Reference Include="System.Core" />
     <Reference Include="System.Xml" />

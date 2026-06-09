@@ -23,6 +23,8 @@ jobs:
           PATCH_ZIP="hyperdrive-${VER}-direct_game_engine_patch.zip"
           zip -r "$PATCH_ZIP" \
             patch.ps1 \
+            patch.sh \
+            .gitattributes \
             README.md \
             LICENSE \
             Directory.Build.props \
