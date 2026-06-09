@@ -14,15 +14,18 @@
       You can also set it manually:
         Windows: $env:RimWorldDir = "C:\Path\To\RimWorld"
         Linux:   export RIMWORLDDIR="/path/to/RimWorld"
+        macOS:   export RIMWORLDDIR="/path/to/RimWorld/RimWorldMac.app"
 
       ManagedDir is auto-detected from whichever data folder exists under RimWorldDir.
       Override directly:
         Windows: $env:ManagedDir = "C:\Path\To\RimWorld\RimWorldWin64_Data\Managed"
         Linux:   export MANAGEDDIR="/path/to/RimWorld/RimWorldLinux_Data/Managed"
+        macOS:   export MANAGEDDIR="/path/to/RimWorld/RimWorldMac.app/Contents/Resources/Data/Managed"
     -->
     <RimWorldDir Condition="'$(RimWorldDir)' == ''">$(RIMWORLDDIR)</RimWorldDir>
     <ManagedDir Condition="'$(ManagedDir)' == '' AND '$(MANAGEDDIR)' != ''">$(MANAGEDDIR)</ManagedDir>
     <ManagedDir Condition="'$(ManagedDir)' == '' AND Exists('$(RimWorldDir)/RimWorldLinux_Data/Managed')">$(RimWorldDir)/RimWorldLinux_Data/Managed</ManagedDir>
+    <ManagedDir Condition="'$(ManagedDir)' == '' AND Exists('$(RimWorldDir)/Contents/Resources/Data/Managed')">$(RimWorldDir)/Contents/Resources/Data/Managed</ManagedDir>
     <ManagedDir Condition="'$(ManagedDir)' == '' AND Exists('$(RimWorldDir)/RimWorldWin64_Data/Managed')">$(RimWorldDir)/RimWorldWin64_Data/Managed</ManagedDir>
     <!-- Fallback: assume Windows layout (backwards compat when RimWorldDir is unset or game not installed) -->
     <ManagedDir Condition="'$(ManagedDir)' == ''">$(RimWorldDir)\RimWorldWin64_Data\Managed</ManagedDir>

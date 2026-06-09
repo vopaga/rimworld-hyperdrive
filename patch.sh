@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# RimWorld Hyperdrive — one-click build + patch script for Linux (native & proton).
+# RimWorld Hyperdrive — one-click build + patch script for Linux and macOS.
 
 # colors for logging
 red()  { printf '\n\033[0;31m[Hyperdrive] ERROR: %s\033[0m\n' "$*" >&2; }
@@ -13,7 +13,7 @@ usage() {
 Usage: ./patch.sh [OPTIONS]
 
 Options:
-  -g, --game-dir DIR   Path to RimWorld root (auto-detected from Steam default)
+  -g, --game-dir DIR   Path to RimWorld root (Linux) or .app bundle (macOS). Auto-detected from Steam default.
   -f, --fresh          Discard existing backup, capture current DLL as clean original
   -r, --restore        Restore Assembly-CSharp.dll from backup
   -s, --skip LIST      Comma-separated patch numbers to skip (e.g. "3,4")
@@ -21,7 +21,8 @@ Options:
 
 Examples:
   ./patch.sh
-  ./patch.sh --game-dir ~/.steam/steam/steamapps/common/RimWorld
+  ./patch.sh --game-dir ~/.steam/steam/steamapps/common/RimWorld          # Linux
+  ./patch.sh --game-dir ~/Library/Application\ Support/Steam/steamapps/common/RimWorld/RimWorldMac.app  # macOS
   ./patch.sh --fresh
   ./patch.sh --restore
 EOF
@@ -50,6 +51,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+OS="$(uname -s)"
 
 # .NET SDK check
 cyan "Checking prerequisites..."
@@ -85,11 +87,17 @@ fi
 
 # Auto-detect game dir from common steam paths
 if [[ -z "$GAME_DIR" ]]; then
-    CANDIDATES=(
-        "$HOME/.steam/steam/steamapps/common/RimWorld"
-        "$HOME/.local/share/Steam/steamapps/common/RimWorld"
-        "$HOME/.var/app/com.valvesoftware.Steam/.steam/steam/steamapps/common/RimWorld"
-    )
+    if [[ "$OS" == "Darwin" ]]; then
+        CANDIDATES=(
+            "$HOME/Library/Application Support/Steam/steamapps/common/RimWorld/RimWorldMac.app"
+        )
+    else
+        CANDIDATES=(
+            "$HOME/.steam/steam/steamapps/common/RimWorld"
+            "$HOME/.local/share/Steam/steamapps/common/RimWorld"
+            "$HOME/.var/app/com.valvesoftware.Steam/.steam/steam/steamapps/common/RimWorld"
+        )
+    fi
     for candidate in "${CANDIDATES[@]}"; do
         if [[ -d "$candidate" ]]; then
             GAME_DIR="$candidate"
@@ -98,8 +106,13 @@ if [[ -z "$GAME_DIR" ]]; then
     done
     if [[ -z "$GAME_DIR" ]]; then
         red "Could not auto-detect RimWorld installation."
-        echo "  Use --game-dir to specify the path, e.g.:"
-        echo "    ./patch.sh --game-dir ~/.steam/steam/steamapps/common/RimWorld"
+        if [[ "$OS" == "Darwin" ]]; then
+            echo "  Use --game-dir to specify the .app bundle path, e.g.:"
+            echo "    ./patch.sh --game-dir ~/Library/Application\\ Support/Steam/steamapps/common/RimWorld/RimWorldMac.app"
+        else
+            echo "  Use --game-dir to specify the path, e.g.:"
+            echo "    ./patch.sh --game-dir ~/.steam/steam/steamapps/common/RimWorld"
+        fi
         exit 1
     fi
 fi
@@ -110,19 +123,29 @@ if [[ ! -d "$GAME_DIR" ]]; then
     exit 1
 fi
 
-# Probe the filesystem so this works for both native Linux (RimWorldLinux_Data) and Proton/Wine installs (RimWorldWin64_Data).
-if [[ -d "$GAME_DIR/RimWorldLinux_Data/Managed" ]]; then
-    DATA_FOLDER="RimWorldLinux_Data"
-elif [[ -d "$GAME_DIR/RimWorldWin64_Data/Managed" ]]; then
-    DATA_FOLDER="RimWorldWin64_Data"
+# Probe for Managed dir — macOS uses .app bundle layout, Linux uses top-level data folders.
+if [[ "$OS" == "Darwin" ]]; then
+    if [[ -d "$GAME_DIR/Contents/Resources/Data/Managed" ]]; then
+        MANAGED_DIR="$GAME_DIR/Contents/Resources/Data/Managed"
+    else
+        red "Could not find Contents/Resources/Data/Managed in: $GAME_DIR"
+        echo "  --game-dir on macOS must point to the .app bundle, e.g.:"
+        echo "    ./patch.sh --game-dir ~/Library/Application\\ Support/Steam/steamapps/common/RimWorld/RimWorldMac.app"
+        exit 1
+    fi
 else
-    red "Could not find RimWorldLinux_Data/Managed or RimWorldWin64_Data/Managed in: $GAME_DIR"
-    echo "  This doesn't look like a RimWorld installation folder."
-    echo "  Use --game-dir to specify the correct path."
-    exit 1
+    if [[ -d "$GAME_DIR/RimWorldLinux_Data/Managed" ]]; then
+        DATA_FOLDER="RimWorldLinux_Data"
+    elif [[ -d "$GAME_DIR/RimWorldWin64_Data/Managed" ]]; then
+        DATA_FOLDER="RimWorldWin64_Data"
+    else
+        red "Could not find RimWorldLinux_Data/Managed or RimWorldWin64_Data/Managed in: $GAME_DIR"
+        echo "  This doesn't look like a RimWorld installation folder."
+        echo "  Use --game-dir to specify the correct path."
+        exit 1
+    fi
+    MANAGED_DIR="$GAME_DIR/$DATA_FOLDER/Managed"
 fi
-
-MANAGED_DIR="$GAME_DIR/$DATA_FOLDER/Managed"
 TARGET_DLL="$MANAGED_DIR/Assembly-CSharp.dll"
 BACKUP_DLL="$MANAGED_DIR/Assembly-CSharp.dll.original"
 
@@ -132,12 +155,23 @@ if [[ ! -f "$TARGET_DLL" ]]; then
     echo "  Use --game-dir to specify the correct path."
     exit 1
 fi
-grn "Found RimWorld at: $GAME_DIR ($DATA_FOLDER)"
+if [[ "$OS" == "Darwin" ]]; then
+    grn "Found RimWorld at: $GAME_DIR"
+else
+    grn "Found RimWorld at: $GAME_DIR ($DATA_FOLDER)"
+fi
 
 # check if the game is running
-if pgrep -x "RimWorldLinux" &>/dev/null; then
-    red "RimWorld is running. Close the game completely, then re-run this script."
-    exit 1
+if [[ "$OS" == "Darwin" ]]; then
+    if pgrep -f "RimWorld by Ludeon Studios" &>/dev/null; then
+        red "RimWorld is running. Close the game completely, then re-run this script."
+        exit 1
+    fi
+else
+    if pgrep -x "RimWorldLinux" &>/dev/null; then
+        red "RimWorld is running. Close the game completely, then re-run this script."
+        exit 1
+    fi
 fi
 
 # expose game dir to MSBuild

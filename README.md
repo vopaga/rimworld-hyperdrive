@@ -11,7 +11,7 @@ IL-level patcher for RimWorld's startup pipeline. Uses Mono.Cecil to inject para
 
 ## Requirements
 
-- RimWorld 1.6 (Steam or DRM-free, Windows or Linux)
+- RimWorld 1.6 (Steam or DRM-free, Windows, Linux, or macOS)
 - [.NET 8+ SDK](https://dotnet.microsoft.com/download) (.NET 8, 9, 10 — all work)
 
 ---
@@ -98,6 +98,16 @@ The exact path depends on your Steam library location.
 
 </details>
 
+### macOS
+
+```bash
+# Auto-detects Steam default path
+./patch.sh
+
+# Or specify the .app bundle path
+./patch.sh --game-dir ~/Library/Application\ Support/Steam/steamapps/common/RimWorld/RimWorldMac.app
+```
+
 ---
 
 ## After a Steam game update
@@ -109,7 +119,7 @@ Steam will overwrite `Assembly-CSharp.dll`. Run with `-Fresh` to start from the 
 ```
 
 ```bash
-# Linux
+# Linux / macOS
 ./patch.sh --fresh
 ```
 
@@ -122,7 +132,7 @@ Steam will overwrite `Assembly-CSharp.dll`. Run with `-Fresh` to start from the 
 ```
 
 ```bash
-# Linux
+# Linux / macOS
 ./patch.sh --restore
 ```
 
