@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>HyperdriveMod</AssemblyName>
+    <TargetFramework>net472</TargetFramework>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <Nullable>disable</Nullable>
+    <LangVersion>10.0</LangVersion>
+    <Optimize>true</Optimize>
+    <DebugType>none</DebugType>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <NoWarn>$(NoWarn);MSB3268;MSB3277;NU1701</NoWarn>
+    <!-- Excludes the build-time-only ParseAndProcessXML research code from the shipped mod. -->
+    <DefineConstants>$(DefineConstants);HYPERDRIVE_MOD</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Portable references (CI-buildable, no local Steam paths).
+         Krafs.Rimworld.Ref = RimWorld 1.6 + Unity reference assemblies (compile-only).
+         Lib.Harmony = compile against Harmony; ExcludeAssets=runtime so 0Harmony.dll is
+         NOT shipped (the Harmony mod provides it at runtime). -->
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.*" />
+    <PackageReference Include="Lib.Harmony" Version="2.3.*" ExcludeAssets="runtime" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Shared optimization logic, also compiled into the build-time patcher's helper DLL -->
+    <Compile Include="..\Helpers\OptimizedStartup.cs" Link="Shared\OptimizedStartup.cs" />
+    <Compile Include="..\Helpers\FastXPath.cs" Link="Shared\FastXPath.cs" />
+  </ItemGroup>
+</Project>

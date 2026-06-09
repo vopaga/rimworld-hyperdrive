@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Variant: double chevron in a rounded badge (fast-forward / boost up) -->
+  <g stroke="#15181C" stroke-linejoin="round" stroke-linecap="round">
+    <!-- badge -->
+    <rect x="86" y="86" width="340" height="340" rx="68" fill="#54B2E6" stroke-width="18"/>
+    <!-- top sheen -->
+    <path d="M120 150 Q256 110 392 150" fill="none" stroke="#BCE6FA" stroke-width="14" opacity="0.7"/>
+  </g>
+  <!-- chevrons: black underlay then white top -->
+  <g fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <polyline points="172,232 256,150 340,232" stroke="#15181C" stroke-width="60"/>
+    <polyline points="172,332 256,250 340,332" stroke="#15181C" stroke-width="60"/>
+    <polyline points="172,232 256,150 340,232" stroke="#EAF7FF" stroke-width="36"/>
+    <polyline points="172,332 256,250 340,332" stroke="#EAF7FF" stroke-width="36"/>
+  </g>
+</svg>

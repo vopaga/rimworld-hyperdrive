@@ -15,6 +15,8 @@ namespace Verse.StartupOptimizer
     /// </summary>
     internal static class OptimizedModManager
     {
+        // Threads for our Task-based parallel work (mod XML load + texture warm-up). Separate
+        // knob from Patch 1's in-method thread count for XmlAssetsInModFolder (Max(3, CPU-1)).
         private static int ThreadCount => Math.Max(4, Environment.ProcessorCount - 1);
 
         // ── Texture/string byte pre-fetch cache ───────────────────────────────
@@ -26,12 +28,23 @@ namespace Verse.StartupOptimizer
         private static volatile Task _prefetchTask = null;
         private static volatile bool _prefetchStarted = false;
 
+        // Warm-up reads each texture once to pull it into the OS file cache, then discards
+        // the bytes — we do NOT hold them in our managed heap (that was multiple GB on big
+        // modlists). The main-thread texture phase then reads from the warm OS cache, which
+        // the OS can reclaim under memory pressure, so there's no OOM risk. Huge files are
+        // skipped to avoid wasting I/O on rare outliers.
+        private const long MaxFileBytes = 16L * 1024 * 1024;         // skip files > 16 MB
+        private static long _prefetchBytes;
+        private static int _warmedCount;
+
         /// <summary>Called by patched LoadModContent — starts background byte pre-fetch.</summary>
         internal static void StartContentPrefetch(List<ModContentPack> runningMods)
         {
             if (_prefetchStarted) return;
             _prefetchStarted = true;
             _byteCache.Clear();
+            _prefetchBytes = 0;
+            _warmedCount = 0;
 
             _prefetchTask = Task.Run(() =>
             {
@@ -39,33 +52,50 @@ namespace Verse.StartupOptimizer
                 {
                     var allFiles = new ConcurrentBag<string>();
 
-                    // Collect all texture + string files across all mods in parallel
+                    // Collect texture files across all mods in parallel. Only textures are
+                    // consumed from the cache (the LoadTextureViaImageConversion patch); sounds
+                    // and strings used to be prefetched too but nothing ever read them back,
+                    // so they were pure wasted RAM — dropped.
                     Parallel.ForEach(runningMods,
                         new ParallelOptions { MaxDegreeOfParallelism = ThreadCount },
                         mod =>
                         {
                             foreach (var folder in mod.foldersToLoadDescendingOrder)
-                            {
                                 CollectFiles(folder, "Textures", allFiles, IsTextureExt);
-                                CollectFiles(folder, "Sounds", allFiles, IsAudioExt);
-                                CollectFiles(folder, "Strings", allFiles, IsStringExt);
-                            }
                         });
 
-                    // Read all bytes in parallel
+                    // Warm the OS file cache: read each texture once into a small reusable
+                    // per-thread buffer and discard it. The main-thread texture phase then
+                    // hits the warm OS cache instead of cold disk — the disk-hiding benefit
+                    // without holding the bytes in our heap.
                     Parallel.ForEach(allFiles,
                         new ParallelOptions { MaxDegreeOfParallelism = ThreadCount },
-                        path =>
+                        () => new byte[128 * 1024],
+                        (path, state, buf) =>
                         {
                             try
                             {
-                                if (File.Exists(path))
-                                    _byteCache.TryAdd(path, File.ReadAllBytes(path));
+                                var info = new FileInfo(path);
+                                if (info.Exists && info.Length <= MaxFileBytes)
+                                {
+                                    using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read,
+                                        FileShare.Read, buf.Length, FileOptions.SequentialScan))
+                                    {
+                                        long total = 0;
+                                        int n;
+                                        while ((n = fs.Read(buf, 0, buf.Length)) > 0) total += n;
+                                        Interlocked.Add(ref _prefetchBytes, total);
+                                        Interlocked.Increment(ref _warmedCount);
+                                    }
+                                }
                             }
                             catch { /* silently skip unreadable files */ }
-                        });
+                            return buf;
+                        },
+                        _ => { });
 
-                    Log.Message($"[StartupOpt] Content pre-fetch done: {_byteCache.Count} files cached.");
+                    Log.Message($"[StartupOpt] Texture cache warm-up done: {_warmedCount} files, " +
+                        $"~{Interlocked.Read(ref _prefetchBytes) / (1024 * 1024)} MB read (OS cache, no managed copy).");
                 }
                 catch (Exception ex)
                 {
@@ -77,8 +107,14 @@ namespace Verse.StartupOptimizer
         /// <summary>Returns pre-fetched bytes for a file path, or null if not cached.</summary>
         public static byte[] GetCachedBytes(string fullPath)
         {
-            if (_byteCache.TryGetValue(fullPath, out var bytes))
+            // The prefetch now only warms the OS file cache (it doesn't keep bytes), so this
+            // is normally empty and the texture patch falls back to a (warm) disk read. Kept
+            // working in case a future build repopulates _byteCache.
+            if (_byteCache.TryRemove(fullPath, out var bytes))
+            {
+                Interlocked.Add(ref _prefetchBytes, -bytes.Length);
                 return bytes;
+            }
             return null;
         }
 
@@ -114,14 +150,6 @@ namespace Verse.StartupOptimizer
             string e = ext.ToLowerInvariant();
             return e == ".png" || e == ".jpg" || e == ".jpeg" || e == ".psd" || e == ".dds";
         }
-        private static bool IsAudioExt(string ext)
-        {
-            string e = ext.ToLowerInvariant();
-            return e == ".wav" || e == ".mp3" || e == ".ogg";
-        }
-        private static bool IsStringExt(string ext)
-            => ext.ToLowerInvariant() == ".txt";
-
         // ── LoadModXML parallel replacement ───────────────────────────────────
 
         internal static List<LoadableXmlAsset> LoadModXML_Parallel(
@@ -163,8 +191,11 @@ namespace Verse.StartupOptimizer
             return combined;
         }
 
+#if !HYPERDRIVE_MOD
         // ── ParseAndProcessXML sequential replacement ─────────────────────────
         // (kept sequential — DirectXmlToObjectNew caches are not thread-safe)
+        // Excluded from the Harmony mod build (Patch 4 is permanently disabled); kept
+        // compiled into the build-time patcher helper for possible future research.
 
         internal static void ParseAndProcessXML_Optimized(
             XmlDocument xmlDoc,
@@ -293,5 +324,6 @@ namespace Verse.StartupOptimizer
                 else patchedDefs.Add(def);
             }
         }
+#endif
     }
 }
