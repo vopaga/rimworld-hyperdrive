@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>Hyperdrive</name>
+  <author>vopaga</author>
+  <packageId>vopaga.hyperdrive</packageId>
+  <supportedVersions>
+    <li>1.6</li>
+  </supportedVersions>
+  <description>Hyperdrive makes the game start faster.
+
+Every launch, RimWorld loads each mod's XML, applies all the patches, and reads textures. On a big mod list that phase takes minutes. Hyperdrive does the same work, just smarter:
+
+- Loads mod XML in parallel instead of one mod at a time
+- Swaps the slow patch matching (XPath over the whole document) for an O(1) index
+- Prefetches textures in the background so the loader stops waiting on disk
+- Scales the loader thread count to your CPU instead of a hardcoded 2
+
+On a 250-mod list with Prepatcher, cold start went from 5:14 to 2:32 (about 2x faster).
+
+It scales with your hardware. More CPU cores and a faster disk (SSD/NVMe) mean a bigger win. On a slow machine you may actually see startup get slower: the parallel loading hands out more work at once than a weak CPU or an HDD can keep up with.
+
+Everything is done in memory through Harmony. No game files are touched, nothing is written to disk, and your saves are not affected. Add or remove it whenever you want. If a patch can't apply, it skips that one patch, logs it, and the game loads normally.
+
+Requires Harmony. Load Hyperdrive right after Harmony.
+
+Reporting bugs
+Bug reports are only accepted through GitHub issues, and only with a full report. Include your complete mod list (load order) and your hardware: CPU model and core count, disk type (NVMe / SSD / HDD), and RAM. Without a full mod list and hardware specs a report can't be acted on. Please don't report bugs in the Steam comments.
+
+GitHub issues: https://github.com/vopaga/rimworld-hyperdrive/issues
+Source: https://github.com/vopaga/rimworld-hyperdrive
+Support development: https://ko-fi.com/vopaga
+
+Changelog
+2026-06-09 - v1.0.3 - Initial release on Steam Workshop.</description>
+  <modDependencies>
+    <li>
+      <packageId>brrainz.harmony</packageId>
+      <displayName>Harmony</displayName>
+      <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+      <downloadUrl>https://github.com/pardeike/HarmonyRimWorld/releases/latest</downloadUrl>
+    </li>
+  </modDependencies>
+  <loadAfter>
+    <li>brrainz.harmony</li>
+  </loadAfter>
+</ModMetaData>

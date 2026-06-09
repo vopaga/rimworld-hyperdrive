@@ -15,25 +15,49 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Create release archive
+      # Archive 2: direct game-engine patch (PowerShell + Cecil/MonoMod patcher).
+      # Packaged first, while src/ is pristine (before any build artifacts appear).
+      - name: Package direct game-engine patch
         run: |
           VER="${{ github.ref_name }}"
-          ZIP="rimworld-hyperdrive-${VER}.zip"
-          zip -r "$ZIP" \
+          PATCH_ZIP="hyperdrive-${VER}-direct_game_engine_patch.zip"
+          zip -r "$PATCH_ZIP" \
             patch.ps1 \
             README.md \
             LICENSE \
             Directory.Build.props \
             src/
-          sha256sum "$ZIP" > checksums.sha256
-          echo "ZIP_NAME=$ZIP" >> "$GITHUB_ENV"
+          sha256sum "$PATCH_ZIP" > "$PATCH_ZIP.sha256"
+          echo "PATCH_ZIP=$PATCH_ZIP" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build Hyperdrive mod
+        run: dotnet build src/HyperdriveMod/HyperdriveMod.csproj -c Release
+
+      # Archive 1: the mod, for Steam Workshop or standalone (unzip into Mods/).
+      - name: Package mod
+        run: |
+          VER="${{ github.ref_name }}"
+          MOD_ZIP="hyperdrive-${VER}.zip"
+          mkdir -p Hyperdrive/About Hyperdrive/Assemblies
+          cp src/HyperdriveMod/About/About.xml Hyperdrive/About/
+          cp src/HyperdriveMod/About/Preview.png Hyperdrive/About/
+          [ -f src/HyperdriveMod/About/PublishedFileId.txt ] && cp src/HyperdriveMod/About/PublishedFileId.txt Hyperdrive/About/ || true
+          cp src/HyperdriveMod/bin/Release/HyperdriveMod.dll Hyperdrive/Assemblies/
+          zip -r "$MOD_ZIP" Hyperdrive
+          sha256sum "$MOD_ZIP" > "$MOD_ZIP.sha256"
+          echo "MOD_ZIP=$MOD_ZIP" >> "$GITHUB_ENV"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "RimWorld Hyperdrive ${{ github.ref_name }}"
+          name: "Hyperdrive ${{ github.ref_name }}"
           generate_release_notes: true
           files: |
-            ${{ env.ZIP_NAME }}
-            checksums.sha256
-
+            ${{ env.MOD_ZIP }}
+            ${{ env.MOD_ZIP }}.sha256
+            ${{ env.PATCH_ZIP }}
+            ${{ env.PATCH_ZIP }}.sha256

@@ -11,20 +11,12 @@
     <NoWarn>$(NoWarn);MSB3268;MSB3277;NU1701</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <!-- Prototype: reference the user's local game + Harmony assemblies directly.
-         Private=false so we don't copy/ship them (the Harmony mod provides 0Harmony at runtime). -->
-    <Reference Include="Assembly-CSharp">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="UnityEngine.CoreModule">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="0Harmony">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\workshop\content\294100\2009463077\Current\Assemblies\0Harmony.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
+    <!-- Portable references (CI-buildable, no local Steam paths).
+         Krafs.Rimworld.Ref = RimWorld 1.6 + Unity reference assemblies (compile-only).
+         Lib.Harmony = compile against Harmony; ExcludeAssets=runtime so 0Harmony.dll is
+         NOT shipped (the Harmony mod provides it at runtime). -->
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.*" />
+    <PackageReference Include="Lib.Harmony" Version="2.3.*" ExcludeAssets="runtime" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml" />
   </ItemGroup>
