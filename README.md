@@ -166,6 +166,10 @@ To simulate a cold run without rebooting, use [RAMMap](https://learn.microsoft.c
 - Hot-reload path preserved and tested
 - Compatible with [Prepatcher](https://steamcommunity.com/workshop/filedetails/?id=2934420800): the helper is merged into `Assembly-CSharp.dll`, so there's no separate DLL for Prepatcher to choke on
 
+### Known incompatibilities
+
+- **[Yet Another Optimizer](https://steamcommunity.com/sharedfiles/filedetails/?id=3718308218)** — both mods rewrite the same vanilla `PatchOperation*.ApplyWorker` methods to speed up the XML patch phase, and the rewrites collide, causing a hard crash to desktop during loading (the patching phase, after the def tree). Run only one of the two. If you want Hyperdrive's other optimizations alongside it, disable Yet Another Optimizer's "fast patch operation" option.
+
 ---
 
 ## License
