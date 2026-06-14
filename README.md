@@ -170,6 +170,10 @@ To simulate a cold run without rebooting, use [RAMMap](https://learn.microsoft.c
 
 - **[Yet Another Optimizer](https://steamcommunity.com/sharedfiles/filedetails/?id=3718308218)** — both mods rewrite the same vanilla `PatchOperation*.ApplyWorker` methods to speed up the XML patch phase, and the rewrites collide, causing a hard crash to desktop during loading (the patching phase, after the def tree). Run only one of the two. If you want Hyperdrive's other optimizations alongside it, disable Yet Another Optimizer's "fast patch operation" option.
 
+### Overlapping mods (safe, but redundant)
+
+- **[Faster Game Loading (Continued)](https://github.com/mushroomTW/FasterGameLoading---Continued)** — no crash; both are startup optimizers and step on each other's work. They parallelize mod XML loading at different layers (Hyperdrive across mods, FGL across files within a mod), so the two `Parallel.For` loops nest and oversubscribe the CPU instead of adding up, and both run their own background texture prefetch. Pick one as your primary loader. If you want to run both, disable FGL's multithreading so it sticks to texture downscaling / atlas caching while Hyperdrive handles parallel loading.
+
 ---
 
 ## License
